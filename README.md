@@ -19,8 +19,7 @@ class SpecialisedTestcase : public Testcase {
     // setup, teardown etc.
 };
 
-// MyTestsuite is necessary to be instantiated in main
-// it uses the specialised testcase base class
+// MyTestsuite uses the specialised testcase base class
 TESTSUITE(MyTestsuite, SpecialisedTestcase, "a simple Testsuite")
 
   TESTCASE(mySimpleTest, "a simple Test")
