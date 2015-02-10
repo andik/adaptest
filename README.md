@@ -85,6 +85,7 @@ using AdapTest::ConsoleLogger;
                 const Result result = test_eq(failstream, __LINE__, 1, i, "i");
                 if (result != OK) return result;
             }
+            bool mybool = false;
             { 
                 const Result result = test_false(failstream, __LINE__, mybool, "mybool");
                 if (result != OK) return result;
