@@ -111,8 +111,9 @@ namespace ADAPTEST_NAMESPACE {
 		virtual std::string& getName() = 0;
 		virtual std::string& getDesc() = 0;
 		virtual Result run(std::ostream&) = 0;
-		virtual void setUp() {};
-		virtual void tearDown() {};
+		virtual void setUp() {}
+		virtual void tearDown() {}
+		virtual ~Testcase() {}
 
 		// Test Functions
 		// --------------
@@ -232,7 +233,7 @@ namespace ADAPTEST_NAMESPACE {
 		virtual void run(Testcases& tests) {
 			logger.testsuite_start(*this);
 
-			for (typename Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
+			for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
 			{
 				Testcase* test = i->second;
 				std::ostringstream failmsg;
@@ -385,12 +386,12 @@ namespace ADAPTEST_NAMESPACE {
 #define TESTSUITE(_name, _testcase, _desc) TESTSUITE_(_name, _testcase, _desc)
 
 #define TESTSUITE_(_name, _testcase, _desc)                                    \
-	ADAPTEST_NAMESPACE::Testcases* _name##List = 0;                            \
-	typedef ADAPTEST_NAMESPACE::Testsuite<_testcase,_name##List> _name##Base;  \
+	ADAPTEST_NAMESPACE::Testcases* _name##List = 0;                              \
+	typedef ADAPTEST_NAMESPACE::Testsuite<_testcase,_name##List> _name##Base;    \
 	class _name : public _name##Base                                             \
 	{                                                                            \
 	public:                                                                      \
-	  _name(Logger& mylogger)                                                    \
+	  _name(ADAPTEST_NAMESPACE::Logger& mylogger)                                \
 	  : _name##Base(mylogger, #_name, _desc)                                     \
 	  {}                                                                         \
 	private:                                                                     \
@@ -419,12 +420,12 @@ namespace ADAPTEST_NAMESPACE {
 		std::string name;                                                          \
 		public:                                                                    \
 		_name() : name(#_name), desc(_desc) {}                                     \
-		virtual string& getName() { return name; }                                 \
-		virtual string& getDesc() { return desc; }                                 \
-		virtual Result run(std::ostream& failmsg) {                                \
+		virtual std::string& getName() { return name; }                            \
+		virtual std::string& getDesc() { return desc; }                            \
+		virtual ADAPTEST_NAMESPACE::Result run(std::ostream& failmsg) {            \
 
 #define END_TESTCASE()                                                         \
-			return OK;                                                               \
+			return ADAPTEST_NAMESPACE::OK;                                           \
 		}                                                                          \
 	};                                                                           \
 
@@ -433,8 +434,9 @@ namespace ADAPTEST_NAMESPACE {
 
 // call a test function and return upon failure. DRY principle
 #define TEST(testtype, ...)  {                                                 \
-	const Result retval = test_##testtype(failmsg, __LINE__, __VA_ARGS__);       \
-	if (retval != OK) return retval;                                             \
+	const ADAPTEST_NAMESPACE::Result retval =                                    \
+		test_##testtype(failmsg, __LINE__, __VA_ARGS__);                           \
+	if (retval != ADAPTEST_NAMESPACE::OK) return retval;                         \
 }
 
 #endif //ADAPTEST_H
