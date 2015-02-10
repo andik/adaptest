@@ -14,8 +14,10 @@ AdapTest is inpired by [lest](https://github.com/martinmoene/lest) and [catch](h
 this is a simple example of how testsuites are looking within AdapTest
 
 ```c++
+#include <adaptest.h>
+
 // specialised testcase base class
-class SpecialisedTestcase : public Testcase {
+class SpecialisedTestcase : public AdapTest::Testcase {
     // setup, teardown etc.
 };
 
@@ -34,7 +36,7 @@ TESTSUITE(MyTestsuite, SpecialisedTestcase, "a simple Testsuite")
 END_TESTSUITE()
 
 int main(int argc, const char* argv[]) {
-  ConsoleLogger logger;
+  AdapTest::ConsoleLogger logger;
   MyTestsuite(logger).run();
 }
 ```
@@ -57,15 +59,9 @@ I'll explain how AdapTest works, because it's quite simple and you'll see instan
 The following is the basic class layout of the example without any macro hideaway:
 
 ```c++
-// part of adaptest.h given here for clarity
-using AdapTest::Result;
-using AdapTest::Testcase;
-using AdapTest::Testcases;
-using AdapTest::Testsuite;
-using AdapTest::TestcaseRegistration;
-using AdapTest::ConsoleLogger;
+ #include <adaptest.h>
 
- class SpecialisedTestcase : public Testcase {
+ class SpecialisedTestcase : public AdapTest::Testcase {
    // setup, teardown etc.
  };
 
@@ -99,7 +95,7 @@ using AdapTest::ConsoleLogger;
  };
 
  int main(int argc, const char* argv[]) {
-   ConsoleLogger logger;
+   AdapTest::ConsoleLogger logger;
    MyTestsuite(logger).run();
  }
 ```
