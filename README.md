@@ -1,21 +1,17 @@
-# adaptest
+# AdapTest
 
 Welcome to AdapTest. A simple yet usefull Unittest Framework for C++.
 
 AdapTest is inpired by [lest](https://github.com/martinmoene/lest) and [catch](https://github.com/philsquared/Catch), but makes things a little different. 
 
-* It uses on Class per Testcase, allowing them to inherit methods and properties
-* It does use a single `TEST(xyz)` Macro that maps to a `test_xyz` memberfunction in the testcase class.
-* therefore one can easily provide new specialisations and adaptions to the tested software.
-
-I did not use an existing framework because they either:
-* depend completely on non-C++ macro "mountains" 
-* have no automatic testcase registration
-* have complicated `REQUIRE(x == y, ...)` magic macros which cannot easily be specialised
+* It uses one Class per Testcase, allowing them to inherit methods and properties
+* It does use a single `TEST(xyz, ...)` Macro that maps to a `test_xyz(...)` memberfunction in the testcase class.
+* this way one can easily provide new specialisations and adaptions to the tested software.
+* it does not require C++11
 
 ## Example
 
-this is a simple example of how testsuites are looking within adaptest
+this is a simple example of how testsuites are looking within AdapTest
 
 ```c++
 // specialised testcase base class
@@ -54,10 +50,11 @@ int main(int argc, const char* argv[]) {
 * write your testcase base classes which inherit from `AdapTest::Testcase` or any class defined in the `adaptest/` folder.
 * write your testsuites. Tested is one executable per Testsuite. (As in the example)
 * simply run the binaries. Currently no testcase selection is provided.
+* if the Logger doesn't suite you, simply provide a new, inherited of the `AdapTest::Logger` Class
 
-## how does adaptest work
+## how AdapTest works
 
-I'll explain how adaptest works, because it's quite simple and you'll see instantly what the macros do hide from you.
+I'll explain how AdapTest works, because it's quite simple and you'll see instantly what the macros do hide from you.
 The following is the basic class layout of the example without any macro hideaway:
 
 ```c++
@@ -77,22 +74,33 @@ using AdapTest::ConsoleLogger;
  Testcases* MyTestsuiteStorage = 0;   
  // The testsuite itself
  class MyTestsuite 
-    : public Testsuite< SpecialisedTestcase, &MyTestsuiteStorage > 
+    : public Testsuite< SpecialisedTestcase, MyTestsuiteStorage > 
  {
-      class MyTestcase;
-      TestcaseRegistration<"simple test", MyTestcase, __LINE__> MyTestcase_reg;
-      class MyTestcase : public SpecialisedTestcase {
-          int Result void(std::ostream& failstream) {
-              int i = 1;
-              const Result result = test_eq(failstream, __LINE__, 1, i, "i");
-              if (result != OK) return result;
-              return OK;
-          }
-      };
+    class MyTestcase;
+    TestcaseRegistration<"simple test", MyTestcase, __LINE__> MyTestcase_reg;
+    class MyTestcase : public SpecialisedTestcase {
+        Result run(std::ostream& failstream) {
+            int i = 1;
+            { 
+                const Result result = test_eq(failstream, __LINE__, 1, i, "i");
+                if (result != OK) return result;
+            }
+            { 
+                const Result result = test_false(failstream, __LINE__, mybool, "mybool");
+                if (result != OK) return result;
+            }
+            { 
+                const Result result = test_true(failstream, __LINE__, mybool, "mybool");
+                if (result != OK) return result;
+            }
+            return OK;
+        }
+    };
  };
 
  int main(int argc, const char* argv[]) {
-     MyTestsuite().run();
+   ConsoleLogger logger;
+   MyTestsuite(logger).run();
  }
 ```
 
