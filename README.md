@@ -61,7 +61,7 @@ The following is the basic class layout of the example without any macro hideawa
 ```c++
  #include <adaptest.h>
 
- class SpecialisedTestcase : public AdapTest::Testcase {
+ class SpecializedTestcase : public AdapTest::Testcase {
    // setup, teardown etc.
  };
 
@@ -69,11 +69,11 @@ The following is the basic class layout of the example without any macro hideawa
  Testcases* MyTestsuiteStorage = 0;   
  // The testsuite itself
  class MyTestsuite 
-    : public Testsuite< SpecialisedTestcase, MyTestsuiteStorage > 
+    : public Testsuite< SpecializedTestcase, MyTestsuiteStorage > 
  {
     class MyTestcase;
     TestcaseRegistration<"simple test", MyTestcase, __LINE__> MyTestcase_reg;
-    class MyTestcase : public SpecialisedTestcase {
+    class MyTestcase : public SpecializedTestcase {
         Result run(std::ostream& failstream) {
             int i = 1;
             { 
@@ -102,7 +102,7 @@ The following is the basic class layout of the example without any macro hideawa
 
 It all works extremly simple:
 * `TestcaseRegistration<>` adds a instance of `SpecialisedTestcase` to `MyTestsuiteStorage` upon it's instantiation (which is ordered by declaration or `TestcaseRegistration`'s in the class.
-* the `TestcaseRegistration<>` template is a subclass of `Testsuite<>`. Thus it can access it's static methods easily. It uses `Testsuite<>::addTestcase()` for the job described abose.
+* the `TestcaseRegistration<>` template is a subclass of `Testsuite<>`. Thus it can access it's static methods easily. It uses `Testsuite<>::addTestcase()` for the job described above.
 * the `TESTCASE()` macro also uses the `Testsuite<>` namespace: the Type ``Testsuite<>::LocalTestcase` defines the Type which `MyTestcase` inherits from.
 * `MyTestsuite::run()` iterates through `MyTestsuiteStorage` and calls `MyTestcase::run()` upon each testcase instance.
 * `Testcase::test_eq()` writes a message to `failstream` if the test fails and returns `FAILED` which in turn causes `MyTestsuite::run()` to count the test as failed and output a pretty formatted message (or write a log etc.).
