@@ -16,13 +16,13 @@ this is a simple example of how testsuites are looking within AdapTest
 ```c++
 #include <adaptest.h>
 
-// specialised testcase base class
-class SpecialisedTestcase : public AdapTest::Testcase {
+// specialized testcase base class
+class SpecializedTestcase : public AdapTest::Testcase {
     // setup, teardown etc.
 };
 
 // MyTestsuite uses the specialised testcase base class
-TESTSUITE(MyTestsuite, SpecialisedTestcase, "a simple Testsuite")
+TESTSUITE(MyTestsuite, SpecializedTestcase, "a simple Testsuite")
 
   TESTCASE(mySimpleTest, "a simple Test")
     int i = 1;
