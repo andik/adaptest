@@ -108,7 +108,7 @@ It all works extremly simple:
 * `TestcaseRegistration<>` adds a instance of `SpecialisedTestcase` to `MyTestsuiteStorage` upon it's instantiation (which is ordered by declaration or `TestcaseRegistration`'s in the class.
 * the `TestcaseRegistration<>` template is a subclass of `Testsuite<>`. Thus it can access it's static methods easily. It uses `Testsuite<>::addTestcase()` for the job described abose.
 * the `TESTCASE()` macro also uses the `Testsuite<>` namespace: the Type ``Testsuite<>::LocalTestcase` defines the Type which `MyTestcase` inherits from.
-* `MyTestsuite::run()` iterates through the `MyTestsuiteStorage` list/map (has yet to be decided) and calls `MyTestcase::run()` upon each testcase instance.
+* `MyTestsuite::run()` iterates through `MyTestsuiteStorage` and calls `MyTestcase::run()` upon each testcase instance.
 * `Testcase::test_eq()` writes a message to `failstream` if the test fails and returns `FAILED` which in turn causes `MyTestsuite::run()` to count the test as failed and output a pretty formatted message (or write a log etc.).
 * The class names of testcases will get automatically generated based upon the `__LINE__` macro. 
 * a `TEST(...)` macro expands to a simple function call which can be implemented in the `SpecialisedTestcase` easily. This way we can easily extend the testability. p.e. `TEST(eq, ...)` will be `test_eq(...)` but it also returns when `test_eq()` fails.
