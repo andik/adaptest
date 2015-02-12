@@ -4,3 +4,4 @@ project (AdapTest_Examples)
 include_directories(../adaptest)
 
 add_executable(AdapTest_BasicExample basic.cpp)
+add_executable(AdapTest_Buffer 			 buffer.cpp)

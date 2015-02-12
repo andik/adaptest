@@ -70,45 +70,45 @@ namespace ADAPTEST_NAMESPACE {
   private:      
     template <class T>
     Result test_diff(
-      std::ostream& failmsg, const int line, 
+      std::ostream& msg, const int line, 
       T expected, T value, T epsilon, std::string testname) 
     {
       const T diff = std::abs(expected - value);
 
       if (diff > epsilon)
-        return write_fail(failmsg, line, expected, value, diff, testname);
+        return fail(msg, line, expected, value, diff, testname);
       return OK;
     }
   
   public:
 
     Result test_eq(
-      std::ostream& failmsg, const int line, 
+      std::ostream& msg, const int line, 
       float expected, float value, std::string testname)
     {
-      return test_diff(failmsg, line, expected, value, epsilon_float,testname);
+      return test_diff(msg, line, expected, value, epsilon_float,testname);
     }
 
 
     Result test_eq(
-      std::ostream& failmsg, const int line, 
+      std::ostream& msg, const int line, 
       double expected, double value, std::string testname)
     {
-      return test_diff(failmsg, line, expected,value,epsilon_double, testname);
+      return test_diff(msg, line, expected,value,epsilon_double, testname);
     }
 
     //--------------------------------------------------------------------------
 
     template <class A, class B, class C>
-    Result write_fail(
-      std::ostream& failmsg, const int line, 
+    Result fail(
+      std::ostream& msg, const int line, 
       A expected, B value, C diff, std::string& testname) 
     {
-      failmsg << testname 
-              << " expected to be " << expected 
-              << " but is " << value
-              << " diff is " << diff
-              << " on line " << line;
+      msg << testname 
+          << " expected to be " << expected 
+          << " but is " << value
+          << " diff is " << diff
+          << " on line " << line;
       return FAILED;
     }   
 

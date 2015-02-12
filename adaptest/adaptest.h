@@ -61,6 +61,11 @@
 #define ADAPTEST_DEFAULT_LOGGER 1
 #endif
 
+// length of Formatted buffer
+#ifndef ADAPTEST_FORMATED_BUFLEN
+#define ADAPTEST_FORMATED_BUFLEN 256
+#endif
+
 #include <map>
 #include <sstream>
 #include <string>
@@ -80,15 +85,15 @@
 namespace ADAPTEST_NAMESPACE {
   // Return Value of a testcase
   enum Result {
-    OK, FAILED
+    OK, FAILED, ERROR
   };
 
   // Static Name Formatter
   // ---------------------
   
   class Formatted {
-    static const int maxlen = 256;
-    char buf[maxlen];
+    static const int buflen = ADAPTEST_FORMATED_BUFLEN;
+    char buf[buflen];
 
   public:
     operator const char * () { return buf; }
@@ -96,12 +101,36 @@ namespace ADAPTEST_NAMESPACE {
 
     template <class T>
     Formatted(const char * fmt, T v1) 
-    { snprintf(buf, maxlen, fmt, v1); }
+    { snprintf(buf, buflen, fmt, v1); }
     template <class T1, class T2>
     Formatted(const char * fmt, T1 v1, T2 v2) 
-    { snprintf(buf, maxlen, fmt, v1, v2); }
+    { snprintf(buf, buflen, fmt, v1, v2); }
   };
   
+  // ================================================================
+
+  // Logging of Testcase output
+  // --------------------------
+
+  class TestsuiteBase;
+  class Testcase;
+  
+  class Logger {
+  public:
+    // test_start always is followed by a call to the same following object
+    virtual void test_start(Testcase& testcase) = 0;
+    virtual void test_passed(Testcase& testcase) = 0;
+    virtual void test_failed(Testcase& testcase, std::ostringstream& msg)=0;
+    virtual void test_error(Testcase& testcase, std::ostringstream& errmsg)=0;
+
+    // testsuite_start always is followed by a call to the same following object
+    virtual void testsuite_start(TestsuiteBase& suite) = 0;
+    virtual void testsuite_done(TestsuiteBase& suite) = 0;
+
+    virtual int getFailed() = 0;
+  };
+
+  // ================================================================   
 
   // Test Case
   // ---------
@@ -119,19 +148,19 @@ namespace ADAPTEST_NAMESPACE {
     // --------------
 
     // - a Test function MUST start with the following arguments:
-    //     std::ostream& failmsg, const int line
+    //     std::ostream& msg, const int line
     // - it should end with "std::string name" to note which did go wrong
     //   but this is not imposed by the TEST() macro
-    // - you can write arbitrary stuff to failmsg, it only will be written,
+    // - you can write arbitrary stuff to msg, it only will be written,
     //   when the testcase failed
 
     // test if a value is as expected
     template <class A, class B>
     Result test_eq(
-      std::ostream& failmsg, const int line, A expected, B value, std::string name) 
+      std::ostream& msg, const int line, A expected, B value, std::string name) 
     {
       if (expected != value) 
-        return write_fail(failmsg, line, expected, value, name);
+        return fail(msg, line, expected, value, name);
       return OK;
     }
 
@@ -139,10 +168,10 @@ namespace ADAPTEST_NAMESPACE {
 
   // test if value is true
     Result test_true(
-      std::ostream& failmsg, const int line, bool value, std::string testname) 
+      std::ostream& msg, const int line, bool value, std::string testname) 
     {
       if (!value) 
-        return write_fail(failmsg, line, true, value, testname);
+        return fail(msg, line, true, value, testname);
       return OK;
     } 
 
@@ -150,25 +179,35 @@ namespace ADAPTEST_NAMESPACE {
 
   // test if value is false
     Result test_false(
-      std::ostream& failmsg, const int line, bool value, std::string testname) 
+      std::ostream& msg, const int line, bool value, std::string testname) 
     {
       if (value) 
-        return write_fail(failmsg, line, false, value, testname);
+        return fail(msg, line, false, value, testname);
       return OK;
     }
 
     //--------------------------------------------------------------------------
 
     template<class A, class B>
-    Result write_fail(
-      std::ostream& failmsg, const int line, 
+    Result fail(
+      std::ostream& msg, const int line, 
       A expected, B value, std::string& testname) 
     {
-      failmsg << testname 
-              << " expected to be " << expected 
-              << " but is " << value
-              << " on line " << line;
+      msg << testname 
+          << " expected to be " << expected 
+          << " but is " << value
+          << " on line " << line;
       return FAILED;
+    }
+
+    //--------------------------------------------------------------------------
+
+    Result error(
+      std::ostream& msg, const int line, 
+      std::string& errmsg) 
+    {
+      msg << errmsg;
+      return ERROR;
     }
   };
   
@@ -176,27 +215,6 @@ namespace ADAPTEST_NAMESPACE {
 
   // the testcase registration list
   typedef std::map<int, Testcase*> Testcases; 
-
-  // ================================================================
-
-  // Logging of Testcase output
-  // --------------------------
-
-  class TestsuiteBase;
-  
-  class Logger {
-  public:
-    // test_start always is followed by a call to the same following object
-    virtual void test_start(Testcase& testcase) = 0;
-    virtual void test_passed(Testcase& testcase) = 0;
-    virtual void test_failed(Testcase& testcase, std::ostringstream& failmsg)=0;
-
-    // testsuite_start always is followed by a call to the same following object
-    virtual void testsuite_start(TestsuiteBase& suite) = 0;
-    virtual void testsuite_done(TestsuiteBase& suite) = 0;
-
-    virtual int getFailed() = 0;
-  };
 
   // ================================================================
 
@@ -236,17 +254,19 @@ namespace ADAPTEST_NAMESPACE {
       for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
       {
         Testcase* test = i->second;
-        std::ostringstream failmsg;
+        std::ostringstream msg;
 
         logger.test_start(*test);
 
           // run testcase
         test->setUp();
-        const Result retval = test->run(failmsg);
+        const Result retval = test->run(msg);
         test->tearDown();
 
-        if (retval != OK) {
-          logger.test_failed(*test, failmsg);
+        if (retval == FAILED) {
+          logger.test_failed(*test, msg);
+        } else if (retval == ERROR) {
+          logger.test_error(*test, msg);
         } else {
           logger.test_passed(*test);
         }
@@ -331,7 +351,7 @@ namespace ADAPTEST_NAMESPACE {
         num_tests++;
       }
 
-      virtual void test_failed(Testcase& test, std::ostringstream& failmsg)
+      virtual void test_failed(Testcase& test, std::ostringstream& msg)
       {
         std::cout 
           << std::right
@@ -345,7 +365,7 @@ namespace ADAPTEST_NAMESPACE {
           << " : "
           << std::left
           << std::setw(40)
-          << failmsg.str()
+          << msg.str()
           << std::endl;
         failed_tests++;
         num_tests++;
@@ -364,6 +384,25 @@ namespace ADAPTEST_NAMESPACE {
 
       virtual int getFailed()
       { return failed_tests; }
+
+      virtual void test_error(Testcase& test, std::ostringstream& msg)
+      {
+        std::cout 
+          << "ERROR : "
+          << std::right
+          #if ADAPTEST_AUTONAMES
+          << test.getDesc()
+          #else
+          << test.getName()
+          #endif
+          << " : "
+          << std::left
+          << std::setw(40)
+          << msg.str()
+          << std::endl;
+        failed_tests++;
+        num_tests++;
+      }
     };  
 
   #endif //ADAPTEST_DEFAULT_LOGGER
@@ -422,7 +461,7 @@ namespace ADAPTEST_NAMESPACE {
     _name() : name(#_name), desc(_desc) {}                                     \
     virtual std::string& getName() { return name; }                            \
     virtual std::string& getDesc() { return desc; }                            \
-    virtual ADAPTEST_NAMESPACE::Result run(std::ostream& failmsg) {            \
+    virtual ADAPTEST_NAMESPACE::Result run(std::ostream& msg) {                \
 
 #define END_TESTCASE()                                                         \
       return ADAPTEST_NAMESPACE::OK;                                           \
@@ -435,7 +474,7 @@ namespace ADAPTEST_NAMESPACE {
 // call a test function and return upon failure. DRY principle
 #define TEST(testtype, ...)  {                                                 \
   const ADAPTEST_NAMESPACE::Result retval =                                    \
-    test_##testtype(failmsg, __LINE__, __VA_ARGS__);                           \
+    test_##testtype(msg, __LINE__, __VA_ARGS__);                               \
   if (retval != ADAPTEST_NAMESPACE::OK) return retval;                         \
 }
 
