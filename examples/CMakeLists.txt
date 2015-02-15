@@ -5,3 +5,4 @@ include_directories(../adaptest)
 
 add_executable(AdapTest_BasicExample basic.cpp)
 add_executable(AdapTest_Buffer 			 buffer.cpp)
+add_executable(AdapTest_FloatBuffer  floatbuffer.cpp)

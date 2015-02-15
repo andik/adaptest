@@ -98,6 +98,8 @@ namespace ADAPTEST_NAMESPACE {
   public:
     operator const char * () { return buf; }
     operator std::string  () { return std::string(buf); }
+    const char * ptr()       { return buf; }
+    std::string  str()       { return std::string(buf); }
 
     template <class T>
     Formatted(const char * fmt, T v1) 

@@ -166,7 +166,7 @@ namespace ADAPTEST_NAMESPACE {
     {
       Formatted filename(ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT, 
                          getTestcaseName(), d.name.c_str());
-      std::fstream datafile(filename, std::ios::out | std::ios::binary);
+      std::fstream datafile(filename.ptr(), std::ios::out | std::ios::binary);
       
       if (!datafile.good()) {
         return error(Formatted("could not open %s", (const char *)filename));
@@ -211,7 +211,7 @@ namespace ADAPTEST_NAMESPACE {
       #ifdef ADAPTEST_BUFWRITE_GNUPLOT
         Formatted gnuplot_filename(ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT, 
                                    getTestcaseName());
-        std::fstream gnuplot_file(gnuplot_filename, std::ios::out);
+        std::fstream gnuplot_file(gnuplot_filename.ptr(), std::ios::out);
       #endif // ADAPTEST_BUFWRITE_GNUPLOT
 
       if (!gnuplot_file.good()) {
@@ -290,7 +290,7 @@ namespace ADAPTEST_NAMESPACE {
       Result write() {
         Formatted filename(
           ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT, getTestcaseName());
-        std::fstream datafile(filename, std::ios::out);
+        std::fstream datafile(filename.ptr(), std::ios::out);
         
         if (!datafile.good()) {
           return error(Formatted("could not open %s", (const char *)filename));
@@ -299,7 +299,7 @@ namespace ADAPTEST_NAMESPACE {
         #ifdef ADAPTEST_BUFWRITE_GNUPLOT
           Formatted gnuplot_filename(ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT, 
                                      getTestcaseName());        
-          std::fstream gnuplot_file(gnuplot_filename, std::ios::out);
+          std::fstream gnuplot_file(gnuplot_filename.ptr(), std::ios::out);
         #endif // ADAPTEST_BUFWRITE_GNUPLOT
 
         if (!gnuplot_file.good()) {
@@ -323,7 +323,7 @@ namespace ADAPTEST_NAMESPACE {
   // ======================================================================== 
 
   template <template <class> class WriterPolicy>
-  class BufferTestcase : public Testcase {
+  class BufferTestcase : public virtual Testcase {
   public:
     // make test_eq overridable
     using Testcase::test_eq;
