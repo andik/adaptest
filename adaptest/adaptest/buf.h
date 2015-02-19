@@ -7,41 +7,24 @@
 // is able to write the buffers and a matching gnuplot script to the filesystem
 // upon test failure.
 
-// upon a failed test: write a gnuplot script to visit the buffers written by
-// ADAPTEST_BUFWRITE_FILE
-#ifndef ADAPTEST_BUFWRITE_GNUPLOT
-#define ADAPTEST_BUFWRITE_GNUPLOT 0
-#endif // !ADAPTEST_BUFWRITE_GNUPLOT
-
-#ifdef ADAPTEST_BUFWRITE_GNUPLOT
-#ifndef ADAPTEST_BUFWRITE_FILE
-#define ADAPTEST_BUFWRITE_FILE 1
-#endif // !ADAPTEST_BUFWRITE_FILE
-#endif // ADAPTEST_BUFWRITE_GNUPLOT
-
-// upon a failed test: write the buffers into files.
+// writing into files is disabled by default
 #ifndef ADAPTEST_BUFWRITE_FILE
 #define ADAPTEST_BUFWRITE_FILE 0
 #endif // !ADAPTEST_BUFWRITE_FILE
 
-#ifndef ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT
-#define ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT "%s-%s.dat"
-#endif // !ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT
-
 #ifndef ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT
-#define ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT "%s.csv"
+#define ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT "%s-%s.csv"
 #endif // !ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT
 
 #ifndef ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT
-#define ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT "%s.gnuplot"
+#define ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT "%s-%s.plt"
 #endif
 
-// Check config
-#if ADAPTEST_BUFWRITE_GNUPLOT && !ADAPTEST_BUFWRITE_FILE
-#error ADAPTEST_BUFWRITE_GNUPLOT requires ADAPTEST_BUFWRITE_FILE
-#endif // ADAPTEST_BUFWRITE_GNUPLOT && !ADAPTEST_BUFWRITE_FILE
+#ifndef ADAPTEST_BUFWRITE_HTML_FILENAME_FORMAT
+#define ADAPTEST_BUFWRITE_HTML_FILENAME_FORMAT "%s-%s.html"
+#endif // !ADAPTEST_BUFWRITE_HTML_FILENAME_FORMAT
 
-#ifdef ADAPTEST_BUFWRITE_FILE
+#if ADAPTEST_BUFWRITE_FILE
 #include <iostream>
 #include <fstream>
 #include <list>
@@ -50,49 +33,7 @@
 
 namespace ADAPTEST_NAMESPACE {
 
-#ifdef ADAPTEST_BUFWRITE_GNUPLOT  
-  // for Gnuplot wee need some portable endianess checks
-  enum Endianness { BIG, LITTLE, UNKNOWN };
-
-  inline 
-  Endianness endianness() {
-    union Check {
-      unsigned long longmem;
-      unsigned char charmem [sizeof(unsigned long)];
-    };
-    Check checkvar;
-    checkvar.longmem = 0xdeadbeef;
-    if (checkvar.charmem[0] == 0xef) 
-      return LITTLE;
-    else if (checkvar.charmem[0] == 0xde) 
-      return BIG;
-    else
-      return UNKNOWN;
-  }
-
-  template <class T> 
-  struct BufferTypeToGnuplot {
-    static const char * format() { return 0; }
-  };
-
-  #define ADAPTEST_BUFFER_GNUPLOT_MAPPING(_type, _str)                        \
-    template<>                                                                \
-    struct BufferTypeToGnuplot<_type> {                                       \
-      static const char * format() { return _str; }                           \
-    };
-
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(float,          "%float32")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(double,         "%float64")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(long,           "%int32")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(unsigned long,  "%uint32")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(short,          "%int16")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(unsigned short, "%uint16")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(char,           "%int8")
-  ADAPTEST_BUFFER_GNUPLOT_MAPPING(unsigned char,  "%uint8")
-#endif
-
-#ifdef ADAPTEST_BUFWRITE_FILE
-#ifdef ADAPTEST_BUFWRITE_GNUPLOT
+#if ADAPTEST_BUFWRITE_FILE
   template <class T>
   class BufferWriter {
   public:
@@ -142,94 +83,10 @@ namespace ADAPTEST_NAMESPACE {
     const char * getTestcaseName() {
       return testcase.getName().c_str();
     }
-  };
 
-  //--------------------------------------------------------------------------
-
-  template <class T>
-  class BinaryBufferWriter : public BufferWriter<T> {
-    using typename BufferWriter<T>::Buffer;
-    using typename BufferWriter<T>::BufferList;
-    using typename BufferWriter<T>::BufferListIter;
-    using BufferWriter<T>::getTestcaseName;
-    using BufferWriter<T>::error;
-    using BufferWriter<T>::write;
-    using BufferWriter<T>::getData;
-  public:
-    BinaryBufferWriter(
-      std::ostream& _msg, const int _line, 
-      class Testcase& _testcase)
-    : BufferWriter<T>(_msg,_line, _testcase)
-    {}
-
-    Result write_buffer(Buffer& d)
-    {
-      Formatted filename(ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT, 
-                         getTestcaseName(), d.name.c_str());
-      std::fstream datafile(filename.ptr(), std::ios::out | std::ios::binary);
-      
-      if (!datafile.good()) {
-        return error(Formatted("could not open %s", (const char *)filename));
-      }
-
-      // write the naked buffer into the output file
-      datafile.write((char*)d.buf, d.buflen * sizeof(T));
-
-      return OK;
+    const char * getTestsuiteName() {
+      return testcase.getTestsuite().getName().c_str(); 
     }
-
-    #ifdef ADAPTEST_BUFWRITE_GNUPLOT
-    Result write_gnuplot_for_buffer(std::ostream& gnuplot, Buffer& d)
-    {
-      Formatted filename(ADAPTEST_BUFWRITE_BINARY_FILENAME_FORMAT, 
-                         getTestcaseName(), d.name.c_str());
-
-      if (BufferTypeToGnuplot<T>::format()) {
-        gnuplot 
-          << "plot "
-          << "\"" << filename << "\" "
-          << "format=\"" << BufferTypeToGnuplot<T>::format() << "\" "
-          << "record=" << d.buflen << " "
-          << "endian=";
-        if (endianness() == BIG)    gnuplot << "\"big\" ";
-        else if (endianness() == LITTLE) gnuplot << "\"little\" ";
-        else return error(Formatted("endianness was %i", endianness()));
-        gnuplot << "with lines";
-      } else {
-        gnuplot
-          << "# "
-          << d.name
-          << " has unknown type";
-      }
-      gnuplot << std::endl;
-
-      return OK;
-    }      
-    #endif // ADAPTEST_BUFWRITE_GNUPLOT
-
-    Result write() {
-      #ifdef ADAPTEST_BUFWRITE_GNUPLOT
-        Formatted gnuplot_filename(ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT, 
-                                   getTestcaseName());
-        std::fstream gnuplot_file(gnuplot_filename.ptr(), std::ios::out);
-      #endif // ADAPTEST_BUFWRITE_GNUPLOT
-
-      if (!gnuplot_file.good()) {
-        return error(Formatted("could not open %s", 
-                               (const char *)gnuplot_filename));
-      }
-
-      for (BufferListIter i = getData().begin(); i != getData().end(); ++i)
-      {
-        Buffer& data = *i;
-        write_buffer(data);
-        #ifdef ADAPTEST_BUFWRITE_GNUPLOT
-          write_gnuplot_for_buffer(gnuplot_file, data);
-        #endif // ADAPTEST_BUFWRITE_GNUPLOT
-      }
-
-      return OK;
-    }    
   };
 
   //--------------------------------------------------------------------------
@@ -240,6 +97,7 @@ namespace ADAPTEST_NAMESPACE {
       using typename BufferWriter<T>::BufferList;
       using typename BufferWriter<T>::BufferListIter;
       using BufferWriter<T>::getTestcaseName;
+      using BufferWriter<T>::getTestsuiteName;
       using BufferWriter<T>::error;
       using BufferWriter<T>::write;
       using BufferWriter<T>::getData;
@@ -268,56 +126,124 @@ namespace ADAPTEST_NAMESPACE {
         return OK;
       }
 
-      #ifdef ADAPTEST_BUFWRITE_GNUPLOT
       virtual Result write_gnuplot(std::ostream& gnuplot, Formatted& filename)
       {
+        gnuplot << "plot ";
         int bufidx = 0;
         for (BufferListIter i = getData().begin(); i != getData().end(); ++i)
         {
+          if (i != getData().begin()) gnuplot << ", ";
+
           gnuplot 
-            << "plot "
             << "\"" << filename << "\" "
             << "using " << bufidx << " "
-            << "with lines"
-            << std::endl;
+            << "title \"" << i->name << "\" "
+            << "with lines";
 
           bufidx++;
         }
+
+        gnuplot << std::endl;
+        return OK;
+      }
+
+      virtual Result write_html(std::ostream& html, Formatted& filename)
+      {
+        html <<
+          "<html><head>"
+          "<script type=\"text/javascript\""
+          "  src=\"dygraph.js\"></script>"
+          "  <style type=\"text/css\">body, div {padding: 0;margin: 0;}</style>"
+          "</head><body>"
+          "<div id=\"graphdiv\"></div>"
+          "<script type=\"text/javascript\">"
+          "  function getData() {return [";
+
+        int bufidx = 0;
+        BufferListIter begin = getData().begin();
+        for (BufferListIter i = begin; i != getData().end(); ++i)
+        {
+          if (i != begin) html << ", ";
+
+          // write the data columwise
+          const size_t buflen = begin->buflen;
+          for (int i = 0; i < buflen; ++i)
+          {
+            if (i > 0) html << ",";
+            html << "[ " << i << ", ";
+            for (BufferListIter it = begin; it != getData().end(); ++it)
+            {
+              if (it != begin) html << ",";
+              Buffer& data = *it;
+              html << data.buf[i];
+            }
+            html << "] " << std::endl;
+          }
+
+          bufidx++;
+        }
+
+        html <<
+          "  ];}"
+          "  (function() {"
+          "  var w = window, d = document, e = d.documentElement, "
+          "      g = d.getElementsByTagName('body')[0],"
+          "      width = w.innerWidth || e.clientWidth || g.clientWidth,"
+          "      height = w.innerHeight|| e.clientHeight|| g.clientHeight;"
+          "  g = new Dygraph(document.getElementById(\"graphdiv\"), getData, {"
+          "      width: width,"
+          "      height: height,"
+          "      labels: [ \"Index\", ";
+
+        for (BufferListIter it = getData().begin(); it != getData().end(); ++it)
+        {
+          Buffer& data = *it;
+          if (it != getData().begin()) html << ", ";
+          html << "\"" << data.name << "\"";
+        }
+
+        html <<
+          " ],"
+          "    });})();</script></body></html>";
+
         return OK;
       }      
-      #endif // ADAPTEST_BUFWRITE_GNUPLOT
+
 
       Result write() {
-        Formatted filename(
-          ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT, getTestcaseName());
+        Formatted filename(ADAPTEST_BUFWRITE_CSV_FILENAME_FORMAT,
+                           getTestsuiteName(), getTestcaseName());
         std::fstream datafile(filename.ptr(), std::ios::out);
         
         if (!datafile.good()) {
-          return error(Formatted("could not open %s", (const char *)filename));
+          return error(Formatted("could not open %s", filename.ptr()));
         }
 
-        #ifdef ADAPTEST_BUFWRITE_GNUPLOT
-          Formatted gnuplot_filename(ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT, 
-                                     getTestcaseName());        
-          std::fstream gnuplot_file(gnuplot_filename.ptr(), std::ios::out);
-        #endif // ADAPTEST_BUFWRITE_GNUPLOT
+        Formatted gnuplot_filename(ADAPTEST_BUFWRITE_GNUPLOT_FILENAME_FORMAT, 
+                                   getTestsuiteName(), getTestcaseName());        
+        std::fstream gnuplot_file(gnuplot_filename.ptr(), std::ios::out);
 
         if (!gnuplot_file.good()) {
-          return error(Formatted("could not open %s", 
-                                 (const char *)gnuplot_filename));
+          return error(Formatted("could not open %s", gnuplot_filename.ptr()));
+        }
+
+        Formatted html_filename(ADAPTEST_BUFWRITE_HTML_FILENAME_FORMAT, 
+                                   getTestsuiteName(), getTestcaseName());        
+        std::fstream html_file(html_filename.ptr(), std::ios::out);
+
+        if (!html_file.good()) {
+          return error(Formatted("could not open %s", html_filename.ptr()));
         }
 
         write_buffers(datafile);
-        #ifdef ADAPTEST_BUFWRITE_GNUPLOT
-          write_gnuplot(gnuplot_file, filename);
-        #endif // ADAPTEST_BUFWRITE_GNUPLOT
+        write_gnuplot(gnuplot_file, filename);
+        write_html(html_file, filename);
 
         return OK;
       }
     };
 
 
-#endif // ADAPTEST_BUFWRITE_GNUPLOT
 #endif // ADAPTEST_BUFWRITE_FILE  
 
   // ======================================================================== 
@@ -340,7 +266,7 @@ namespace ADAPTEST_NAMESPACE {
         if (res != OK ) break;
       }
 
-      #ifdef ADAPTEST_BUFWRITE_FILE
+      #if ADAPTEST_BUFWRITE_FILE
         if (res != OK) {
           WriterPolicy<T> writer(msg, line, *this);
           writer.add_buf(buf, buflen, name);
@@ -378,7 +304,7 @@ namespace ADAPTEST_NAMESPACE {
         if (res != OK ) break;
       }
 
-      #ifdef ADAPTEST_BUFWRITE_FILE
+      #if ADAPTEST_BUFWRITE_FILE
         if (res != OK) {
           WriterPolicy<T> writer(msg, line, *this);
           writer.add_buf(buf, buflen, name);

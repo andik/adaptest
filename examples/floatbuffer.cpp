@@ -1,29 +1,31 @@
 #define ADAPTEST_BUFWRITE_FILE 1
 #include <adaptest.h>
 #include <adaptest/buf.h>
+#include <adaptest/float.h>
 #include <sstream>
 #include <iostream>
 
 class SpecializedTestcase : 
+	public AdapTest::FloatingPointTestcase,
 	public AdapTest::BufferTestcase<AdapTest::CSVBufferWriter> {
 public:
 	static const int buflen = 50;
-	int source[buflen];
-	int compare[buflen];
+	float source[buflen];
+	float compare[buflen];
 	virtual void setUp() {
 		for (int i = 0; i < buflen; ++i)
 		{
-			compare[i] = i;
+			compare[i] = (float)i;
 			// tests have to fail - we want it this way
-			source[i] =  i + 1;
+			source[i] =  (float)i + 1;
 		}
 	}
 };
 
-TESTSUITE(BufferFails, SpecializedTestcase, "")
+TESTSUITE(FloatBufferFails, SpecializedTestcase, "")
 	TESTCASE(BufVsFloat, "")
 		// test against an integer
-		TEST(buf, source, 1, "buf")
+		TEST(buf, source, 1.0f, "buf")
 	END_TESTCASE()
 	TESTCASE(BufVsBuf, "")
 		// test against an integer
@@ -34,6 +36,6 @@ END_TESTSUITE()
 int main(int argc, char const *argv[])
 {
 	AdapTest::ConsoleLogger logger;
-	BufferFails(logger).run();
+	FloatBufferFails(logger).run();
 	return logger.getFailed();
 }

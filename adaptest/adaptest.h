@@ -133,11 +133,14 @@ namespace ADAPTEST_NAMESPACE {
   };
 
   // ================================================================   
+    
 
   // Test Case
   // ---------
 
   class Testcase {
+  private:
+    TestsuiteBase* testsuite;
   public:
     virtual std::string& getName() = 0;
     virtual std::string& getDesc() = 0;
@@ -145,6 +148,9 @@ namespace ADAPTEST_NAMESPACE {
     virtual void setUp() {}
     virtual void tearDown() {}
     virtual ~Testcase() {}
+    void setTestsuite(TestsuiteBase& _testsuite) { testsuite = &_testsuite;}
+    TestsuiteBase& getTestsuite() { return *testsuite; }
+
 
     // Test Functions
     // --------------
@@ -313,7 +319,14 @@ namespace ADAPTEST_NAMESPACE {
     // Run Testsuite
     using BasicTestsuite::run;
     void run() {
-      run(getTests());
+      Testcases& tests = getTests();
+      for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
+      {
+        Testcase* test = i->second;
+        test->setTestsuite(*this);
+      }
+      
+      run(tests);
     }
   };
 
