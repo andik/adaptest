@@ -77,38 +77,96 @@
 
 #include <cstdio>
 
+using std::string;
+using std::stringstream;
+
 // ======================================================================== 
 
 // Testsuite Class System
 // ----------------------
 
 namespace ADAPTEST_NAMESPACE {
-  // Return Value of a testcase
-  enum Result {
+  
+  // Testcase Result
+  // ---------------
+
+  enum ResultEnum {
     OK, FAILED, ERROR
   };
 
-  // Static Name Formatter
-  // ---------------------
-  
-  class Formatted {
-    static const int buflen = ADAPTEST_FORMATED_BUFLEN;
-    char buf[buflen];
+  struct Result
+  {
+    ResultEnum resval;
+    string test;
+    int line;
+    string msg;
 
-  public:
-    operator const char * () { return buf; }
-    operator std::string  () { return std::string(buf); }
-    const char * ptr()       { return buf; }
-    std::string  str()       { return std::string(buf); }
+    Result(ResultEnum _resval, string _test, int _line, string _msg)
+    : resval(_resval) , test(_test) , line(_line) , msg(_msg)
+    {}
 
-    template <class T>
-    Formatted(const char * fmt, T v1) 
-    { snprintf(buf, buflen, fmt, v1); }
-    template <class T1, class T2>
-    Formatted(const char * fmt, T1 v1, T2 v2) 
-    { snprintf(buf, buflen, fmt, v1, v2); }
+    Result(ResultEnum _resval)
+    : resval(_resval), test(""), line(0), msg("")
+    {}
+
+    bool operator == (ResultEnum o) { return resval == 0; }
+    bool operator != (ResultEnum o) { return resval != 0; }
   };
+
+  // Simple String Formatter
+  // -----------------------
+
+  template <class A, class B, class C, class D, class E>
+  string 
+  format(string fmt, const A& a, const B& b, const C& c, const D& d, const E& e) 
+  {
+    stringstream output;
+    size_t offset = 0;
+    size_t param  = -1;
+    size_t find   = 0;
+    while ((find = fmt.find('{', offset)) != string::npos) {
+        output << fmt.substr(offset, find - offset);
+        offset = find + 1;
+        char selection = fmt[offset];
+        if ((selection >= '0') && (selection < '5')) {
+            offset++;
+            param = (size_t) selection - '0';
+        } else if (selection == '}') {
+            param++;
+        } else {
+            offset = fmt.find('}', offset) + 1;
+            continue;
+        }
+        switch (param) {
+            case 0: output << a; break;
+            case 1: output << b; break;
+            case 2: output << c; break;
+            case 3: output << d; break;
+            case 4: output << e; break;
+            default: break;
+        }
+        offset++;
+    }
+    output << fmt.substr(offset, fmt.length() - offset);
+    return output.str();
+  }
   
+  template <class A>
+  string format(string fmt, const A& a)
+  { return format(fmt, a, "", "", "", ""); }
+
+  template <class A, class B>
+  string format(string fmt, const A& a, const B& b)
+  { return format(fmt, a, b, "", "", ""); }
+
+  template <class A, class B, class C>
+  string format(string fmt, const A& a, const B& b, const C& c)
+  { return format(fmt, a, b, c, "", ""); }
+
+  template <class A, class B, class C, class D>
+  string format(string fmt, const A& a, const B& b, const C& c, const D& d)
+  { return format(fmt, a, b, c, d, ""); }
+
   // ================================================================
 
   // Logging of Testcase output
@@ -122,8 +180,8 @@ namespace ADAPTEST_NAMESPACE {
     // test_start always is followed by a call to the same following object
     virtual void test_start(Testcase& testcase) = 0;
     virtual void test_passed(Testcase& testcase) = 0;
-    virtual void test_failed(Testcase& testcase, std::ostringstream& msg)=0;
-    virtual void test_error(Testcase& testcase, std::ostringstream& errmsg)=0;
+    virtual void test_failed(Testcase& testcase, Result& res)=0;
+    virtual void test_error(Testcase& testcase,  Result& res)=0;
 
     // testsuite_start always is followed by a call to the same following object
     virtual void testsuite_start(TestsuiteBase& suite) = 0;
@@ -144,7 +202,7 @@ namespace ADAPTEST_NAMESPACE {
   public:
     virtual std::string& getName() = 0;
     virtual std::string& getDesc() = 0;
-    virtual Result run(std::ostream&) = 0;
+    virtual Result run() = 0;
     virtual void setUp() {}
     virtual void tearDown() {}
     virtual ~Testcase() {}
@@ -165,10 +223,10 @@ namespace ADAPTEST_NAMESPACE {
     // test if a value is as expected
     template <class A, class B>
     Result test_eq(
-      std::ostream& msg, const int line, A expected, B value, std::string name) 
+      A expected, B value, std::string name, const int line) 
     {
       if (expected != value) 
-        return fail(msg, line, expected, value, name);
+        return fail(expected, value, name, line);
       return OK;
     }
 
@@ -176,10 +234,10 @@ namespace ADAPTEST_NAMESPACE {
 
   // test if value is true
     Result test_true(
-      std::ostream& msg, const int line, bool value, std::string testname) 
+      bool value, std::string testname, const int line) 
     {
       if (!value) 
-        return fail(msg, line, true, value, testname);
+        return fail(true, value, testname, line);
       return OK;
     } 
 
@@ -187,10 +245,10 @@ namespace ADAPTEST_NAMESPACE {
 
   // test if value is false
     Result test_false(
-      std::ostream& msg, const int line, bool value, std::string testname) 
+      bool value, std::string testname, const int line) 
     {
       if (value) 
-        return fail(msg, line, false, value, testname);
+        return fail(false, value, testname, line);
       return OK;
     }
 
@@ -198,24 +256,19 @@ namespace ADAPTEST_NAMESPACE {
 
     template<class A, class B>
     Result fail(
-      std::ostream& msg, const int line, 
-      A expected, B value, std::string& testname) 
+      A expected, B value, std::string& testname, const int line) 
     {
-      msg << testname 
-          << " expected to be " << expected 
-          << " but is " << value
-          << " on line " << line;
-      return FAILED;
+      return Result(FAILED, testname, line, 
+                    format("{} expected to be {}, but is {}", 
+                           testname, expected, value));
     }
 
     //--------------------------------------------------------------------------
 
     Result error(
-      std::ostream& msg, const int line, 
-      std::string& errmsg) 
+      std::string& errmsg, const int line) 
     {
-      msg << errmsg;
-      return ERROR;
+      return Result(ERROR, "", line, errmsg);
     }
   };
   
@@ -262,19 +315,18 @@ namespace ADAPTEST_NAMESPACE {
       for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
       {
         Testcase* test = i->second;
-        std::ostringstream msg;
 
         logger.test_start(*test);
 
           // run testcase
         test->setUp();
-        const Result retval = test->run(msg);
+        Result retval = test->run();
         test->tearDown();
 
-        if (retval == FAILED) {
-          logger.test_failed(*test, msg);
-        } else if (retval == ERROR) {
-          logger.test_error(*test, msg);
+        if (retval.resval == FAILED) {
+          logger.test_failed(*test, retval);
+        } else if (retval.resval == ERROR) {
+          logger.test_error(*test, retval);
         } else {
           logger.test_passed(*test);
         }
@@ -366,21 +418,23 @@ namespace ADAPTEST_NAMESPACE {
         num_tests++;
       }
 
-      virtual void test_failed(Testcase& test, std::ostringstream& msg)
+      virtual void test_failed(Testcase& testcase, Result& res)
       {
         std::cout 
           << std::right
           #if ADAPTEST_AUTONAMES
           << std::setw(40)
-          << test.getDesc()
+          << testcase.getDesc()
           #else
           << std::setw(20)
-          << test.getName()
+          << testcase.getName()
           #endif
+          << " : "
+          << res.line
           << " : "
           << std::left
           << std::setw(40)
-          << msg.str()
+          << res.msg
           << std::endl;
         failed_tests++;
         num_tests++;
@@ -400,7 +454,7 @@ namespace ADAPTEST_NAMESPACE {
       virtual int getFailed()
       { return failed_tests; }
 
-      virtual void test_error(Testcase& test, std::ostringstream& msg)
+      virtual void test_error(Testcase& test, Result& res)
       {
         std::cout 
           << "ERROR : "
@@ -411,9 +465,11 @@ namespace ADAPTEST_NAMESPACE {
           << test.getName()
           #endif
           << " : "
+          << res.line
+          << " : "
           << std::left
           << std::setw(40)
-          << msg.str()
+          << res.msg
           << std::endl;
         failed_tests++;
         num_tests++;
@@ -476,7 +532,7 @@ namespace ADAPTEST_NAMESPACE {
     _name() : name(#_name), desc(_desc) {}                                     \
     virtual std::string& getName() { return name; }                            \
     virtual std::string& getDesc() { return desc; }                            \
-    virtual ADAPTEST_NAMESPACE::Result run(std::ostream& msg) {                \
+    virtual ADAPTEST_NAMESPACE::Result run() {                                 \
 
 #define END_TESTCASE()                                                         \
       return ADAPTEST_NAMESPACE::OK;                                           \
@@ -489,8 +545,8 @@ namespace ADAPTEST_NAMESPACE {
 // call a test function and return upon failure. DRY principle
 #define TEST(testtype, ...)  {                                                 \
   const ADAPTEST_NAMESPACE::Result retval =                                    \
-    test_##testtype(msg, __LINE__, __VA_ARGS__);                               \
-  if (retval != ADAPTEST_NAMESPACE::OK) return retval;                         \
+    test_##testtype(__VA_ARGS__, __LINE__);                                    \
+  if (retval.resval != ADAPTEST_NAMESPACE::OK) return retval;                  \
 }
 
 #endif //ADAPTEST_H
