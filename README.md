@@ -96,18 +96,19 @@ The following is the basic class layout of the example without any macro hideawa
  AdapTest::Testsuites* AdapTest::TestsuiteRegistration::storage = 0;
  int main(int argc, const char* argv[]) {
    AdapTest::ConsoleLogger logger;
-   MyTestsuite(logger).run();
+   AdapTest::run(logger);
  }
 ```
 
 It all works extremly simple:
-* `TestcaseRegistration<>` adds a instance of `SpecialisedTestcase` to `MyTestsuiteStorage` upon it's instantiation (which is ordered by declaration or `TestcaseRegistration`'s in the class.
+* `TestcaseRegistration<>` adds a instance of `SpecialisedTestcase` to `MyTestsuiteStorage` upon it's instantiation (which is ordered by declaration or `TestcaseRegistration`'s in the class.)
 * the `TestcaseRegistration<>` template is a subclass of `Testsuite<>`. Thus it can access it's static methods easily. It uses `Testsuite<>::addTestcase()` for the job described above.
+* `RegisterTestsuite<>` registers an instance of  `MyTestsuite` for the call of `AdapTest::run()` it works the same way as `TestcaseRegistration<>` but on a global variable.
 * the `TESTCASE()` macro also uses the `Testsuite<>` namespace: the Type ``Testsuite<>::LocalTestcase` defines the Type which `MyTestcase` inherits from.
-* `MyTestsuite::run()` iterates through `MyTestsuiteStorage` and calls `MyTestcase::run()` upon each testcase instance.
-* `Testcase::test_eq()` writes a message to `failstream` if the test fails and returns `FAILED` which in turn causes `MyTestsuite::run()` to count the test as failed and output a pretty formatted message (or write a log etc.).
-* The class names of testcases will get automatically generated based upon the `__LINE__` macro. 
+* `AdapTest::run()` iterated through the registered Testsuites in `TestsuiteRegistration::storage` and calls `MyTestsuite::run(logger)`
+* `MyTestsuite::run(logger)` iterates through `MyTestsuiteStorage` and calls `MyTestcase::run()` upon each testcase instance, logging the results using `logger`.
+* `Testcase::test_eq()` returns a `Result` Struct which contains what happend (`FAILED`) and additional data such as a log message. `FAILED` causes `MyTestsuite::run()` to count the test as failed and write a log.
+* The class names of testcases can get automatically generated based upon the `__LINE__` macro if `ADAPTEST_AUTONAMES` was defined to `1` before including `adaptest.h`
 * a `TEST(...)` macro expands to a simple function call which can be implemented in the `SpecialisedTestcase` easily. This way we can easily extend the testability. p.e. `TEST(eq, ...)` will be `test_eq(...)` but it also returns when `test_eq()` fails.
 
-The magic here is the automatic Testcase registrations, so that one doesn't have to maintain a separate testcase list or generate code. the idea was taken from the catch framework and adapted to use classes instead of functions.
-I want to do this all on a class level, because this is much easier to specialise for example for generator tests, etc. 
+The magic here is the automatic Testcase/Testsuite registration, so that one doesn't have to maintain a separate testcase/testsuite list or generate code. the idea was taken from the catch framework and adapted to use classes instead of functions.
