@@ -8,6 +8,7 @@ AdapTest is inpired by [lest](https://github.com/martinmoene/lest) and [catch](h
 * It does use a single `TEST(xyz, ...)` Macro that maps to a `test_xyz(...)` memberfunction in the testcase class.
 * this way one can easily provide new specialisations and adaptions to the tested software.
 * it does not require C++11
+* It uses auto-registration for testcases and testsuites. no need to maintain that.
 
 ## Example
 
