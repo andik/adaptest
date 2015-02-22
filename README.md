@@ -35,7 +35,7 @@ TESTSUITE(MyTestsuite, SpecializedTestcase, "a simple Testsuite")
 
 END_TESTSUITE()
 
-ADAPTEST_MAIN(ConsoleLogger)
+ADAPTEST_MAIN(AdapTest::ConsoleLogger)
 ```
 
 ## Installation
