@@ -35,7 +35,7 @@ TESTSUITE(MyTestsuite, SpecializedTestcase, "a simple Testsuite")
 
 END_TESTSUITE()
 
-ADAPTEST_MAIN()
+ADAPTEST_MAIN(ConsoleLogger)
 ```
 
 ## Installation
@@ -96,7 +96,7 @@ The following is the basic class layout of the example without any macro hideawa
  AdapTest::Testsuites* AdapTest::TestsuiteRegistration::storage = 0;
  int main(int argc, const char* argv[]) {
    AdapTest::ConsoleLogger logger;
-   AdapTest::run(logger);
+   return AdapTest::run(logger);
  }
 ```
 
@@ -105,7 +105,7 @@ It all works extremly simple:
 * the `TestcaseRegistration<>` template is a subclass of `Testsuite<>`. Thus it can access it's static methods easily. It uses `Testsuite<>::addTestcase()` for the job described above.
 * `RegisterTestsuite<>` registers an instance of  `MyTestsuite` for the call of `AdapTest::run()` it works the same way as `TestcaseRegistration<>` but on a global variable.
 * the `TESTCASE()` macro also uses the `Testsuite<>` namespace: the Type ``Testsuite<>::LocalTestcase` defines the Type which `MyTestcase` inherits from.
-* `AdapTest::run()` iterated through the registered Testsuites in `TestsuiteRegistration::storage` and calls `MyTestsuite::run(logger)`
+* `AdapTest::run()` iterated through the registered Testsuites in `TestsuiteRegistration::storage` and calls `MyTestsuite::run(logger)`. It returns the number of all failed tests.
 * `MyTestsuite::run(logger)` iterates through `MyTestsuiteStorage` and calls `MyTestcase::run()` upon each testcase instance, logging the results using `logger`.
 * `Testcase::test_eq()` returns a `Result` Struct which contains what happend (`FAILED`) and additional data such as a log message. `FAILED` causes `MyTestsuite::run()` to count the test as failed and write a log.
 * The class names of testcases can get automatically generated based upon the `__LINE__` macro if `ADAPTEST_AUTONAMES` was defined to `1` before including `adaptest.h`
