@@ -35,10 +35,7 @@ TESTSUITE(MyTestsuite, SpecializedTestcase, "a simple Testsuite")
 
 END_TESTSUITE()
 
-int main(int argc, const char* argv[]) {
-  AdapTest::ConsoleLogger logger;
-  MyTestsuite(logger).run();
-}
+ADAPTEST_MAIN()
 ```
 
 ## Installation
@@ -68,6 +65,8 @@ The following is the basic class layout of the example without any macro hideawa
  // We needs to define a variable which holds all testcases for the suite.
  Testcases* MyTestsuiteStorage = 0;   
  // The testsuite itself
+ class MyTestsuite;
+ RegisterTestsuite<MyTestsuite> MyTestsuiteReg;
  class MyTestsuite 
     : public Testsuite< SpecializedTestcase, MyTestsuiteStorage > 
  {
@@ -94,6 +93,7 @@ The following is the basic class layout of the example without any macro hideawa
     };
  };
 
+ AdapTest::Testsuites* AdapTest::TestsuiteRegistration::storage = 0;
  int main(int argc, const char* argv[]) {
    AdapTest::ConsoleLogger logger;
    MyTestsuite(logger).run();

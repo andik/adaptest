@@ -551,8 +551,8 @@ namespace ADAPTEST_NAMESPACE {
   class _name;                                                                 \
   TestcaseRegistration<_name, __LINE__> _name##Reg;                            \
   class _name : public LocalTestcase {                                         \
-    std::string desc;                                                          \
     std::string name;                                                          \
+    std::string desc;                                                          \
     public:                                                                    \
     _name() : name(#_name), desc(_desc) {}                                     \
     virtual std::string& getName() { return name; }                            \
