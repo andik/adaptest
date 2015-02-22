@@ -43,12 +43,6 @@
 #define ADAPTEST_NAMESPACE AdapTest
 #endif
 
-// you can supply your custom testsuite baseclass if you #define
-// ADAPTEST_BASECLASS. Your Class must implement TestsuiteBase.
-#ifndef ADAPTEST_BASECLASS
-#define ADAPTEST_BASECLASS BasicTestsuite
-#endif
-
 // if set to one you do not need to provide a name to your testcases aka
 // TESTCASE("desc") instead of TESTCASE(name, "desc"). this has the drawback
 // of not being able to easily set breakpoints using gdb.
@@ -67,6 +61,7 @@
 #endif
 
 #include <map>
+#include <list>
 #include <sstream>
 #include <string>
 
@@ -284,32 +279,18 @@ namespace ADAPTEST_NAMESPACE {
 
   class TestsuiteBase {
   protected:
-    Logger& logger;
     std::string name;
     std::string description;
   public:
-    TestsuiteBase(Logger& mylogger, const char * myname, const char * mydesc)
-    : logger(mylogger)
-    , name(myname)
+    TestsuiteBase(const char * myname, const char * mydesc)
+    : name(myname)
     , description(mydesc)
     {}
 
-    std::string& getName() {
-      return name;
-    }
+    std::string& getName()          { return name; }
 
     // Run Testsuite
-    virtual void run(Testcases& tests) = 0;
-  };  
-
-  class BasicTestsuite : public TestsuiteBase {
-  public:
-    BasicTestsuite(Logger& mylogger, const char * myname, const char * mydesc)
-    : TestsuiteBase(mylogger, myname, mydesc)
-    {}
-
-    // Run Testsuite
-    virtual void run(Testcases& tests) {
+    void run_tests(Testcases& tests, Logger& logger) {
       logger.testsuite_start(*this);
 
       for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
@@ -318,7 +299,8 @@ namespace ADAPTEST_NAMESPACE {
 
         logger.test_start(*test);
 
-          // run testcase
+        // run testcase
+        test->setTestsuite(*this);
         test->setUp();
         Result retval = test->run();
         test->tearDown();
@@ -336,18 +318,20 @@ namespace ADAPTEST_NAMESPACE {
 
       logger.testsuite_done(*this);
     }
+
+    virtual void run(Logger& logger) = 0;
   };
 
   //--------------------------------------------------------------------------
 
   template<class TestcaseClass, Testcases*& testcaseStorage>
-  class Testsuite : public ADAPTEST_BASECLASS {
+  class Testsuite : public TestsuiteBase {
   public:
     typedef Testsuite<TestcaseClass, testcaseStorage> LocalTestsuite;
     typedef TestcaseClass LocalTestcase;
     
-    Testsuite(Logger& mylogger, const char * myname, const char * mydesc)
-    : ADAPTEST_BASECLASS(mylogger, myname, mydesc)
+    Testsuite(const char * myname, const char * mydesc)
+    : TestsuiteBase(myname, mydesc)
     {}
 
     static Testcases& getTests() {
@@ -368,20 +352,50 @@ namespace ADAPTEST_NAMESPACE {
       }
     };
 
-    // Run Testsuite
-    using BasicTestsuite::run;
-    void run() {
-      Testcases& tests = getTests();
-      for (Testcases::iterator i = tests.begin(); i != tests.end(); ++i)
-      {
-        Testcase* test = i->second;
-        test->setTestsuite(*this);
-      }
-      
-      run(tests);
+    virtual void run(Logger& logger) {
+      run_tests(getTests(), logger);
     }
   };
 
+  // ------------------------------------------------------------------------
+
+  // Testsuite Auto registration
+  // ---------------------------
+
+  typedef std::list<TestsuiteBase*> Testsuites;
+  Logger* logger;
+
+  class TestsuiteRegistration {
+  public:
+    static Testsuites* storage;
+
+    // constructor which in fact registers the testsuite
+    static void add(TestsuiteBase* testsuite) {
+      if (!storage) storage = new Testsuites();
+      storage->push_back(testsuite);
+    }
+
+    static int run(Logger& logger) {
+      if (!storage) return -1;
+
+      for (Testsuites::iterator i = storage->begin(); 
+           i != storage->end(); ++i)
+      {
+        (*i)->run(logger);  
+      }
+
+      return logger.getFailed();
+    }
+  };
+
+  template <class CurrentTestsuite>
+  class RegisterTestsuite {
+  public:
+    // constructor which in fact registers the testsuite
+    RegisterTestsuite() {
+      TestsuiteRegistration::add(new CurrentTestsuite());
+    }
+  };
 
   // ======================================================================== 
 
@@ -478,7 +492,16 @@ namespace ADAPTEST_NAMESPACE {
 
   #endif //ADAPTEST_DEFAULT_LOGGER
 
+  // Main entrance Functions
+  // -----------------------
+
+  inline
+  int run(Logger& logger) {
+    return TestsuiteRegistration::run(logger);
+  }
+
 } // namespace ADAPTEST_NAMESPACE
+
 
 // ================================================================
 
@@ -496,13 +519,15 @@ namespace ADAPTEST_NAMESPACE {
 #define TESTSUITE(_name, _testcase, _desc) TESTSUITE_(_name, _testcase, _desc)
 
 #define TESTSUITE_(_name, _testcase, _desc)                                    \
+  class _name;                                                                 \
+  ADAPTEST_NAMESPACE::RegisterTestsuite<_name> _name##Reg;                     \
   ADAPTEST_NAMESPACE::Testcases* _name##List = 0;                              \
   typedef ADAPTEST_NAMESPACE::Testsuite<_testcase,_name##List> _name##Base;    \
   class _name : public _name##Base                                             \
   {                                                                            \
   public:                                                                      \
-    _name(ADAPTEST_NAMESPACE::Logger& mylogger)                                \
-    : _name##Base(mylogger, #_name, _desc)                                     \
+    _name()                                                                    \
+    : _name##Base(#_name, _desc)                                               \
     {}                                                                         \
   private:                                                                     \
 
@@ -548,5 +573,24 @@ namespace ADAPTEST_NAMESPACE {
     test_##testtype(__VA_ARGS__, __LINE__);                                    \
   if (retval.resval != ADAPTEST_NAMESPACE::OK) return retval;                  \
 }
+
+// Adapted Global Variables
+// ------------------------
+
+#define ADAPTEST_GLOBALS()                                                     \
+  ADAPTEST_NAMESPACE::Testsuites*                                              \
+    ADAPTEST_NAMESPACE::TestsuiteRegistration::storage = 0;                    \
+
+
+// Run Autoregistered Testsuites
+// -----------------------------
+
+#define ADAPTEST_MAIN(LoggerClass)                                             \
+  ADAPTEST_GLOBALS()                                                           \
+  int main(int argc, char const *argv[])                                       \
+  {                                                                            \
+    ADAPTEST_NAMESPACE::LoggerClass logger;                                    \
+    return ADAPTEST_NAMESPACE::run(logger);                                    \
+  }                                                                            \
 
 #endif //ADAPTEST_H

@@ -19,7 +19,4 @@ TESTSUITE(MyTestsuite, SpecializedTestcase, "a simple Testsuite")
 
 END_TESTSUITE()
 
-int main(int argc, const char* argv[]) {
-  AdapTest::ConsoleLogger logger;
-  MyTestsuite(logger).run();
-}
+ADAPTEST_MAIN(ConsoleLogger)

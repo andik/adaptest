@@ -31,9 +31,4 @@ TESTSUITE(BufferFails, SpecializedTestcase, "")
 	END_TESTCASE()
 END_TESTSUITE()
 
-int main(int argc, char const *argv[])
-{
-	AdapTest::ConsoleLogger logger;
-	BufferFails(logger).run();
-	return logger.getFailed();
-}
+ADAPTEST_MAIN(ConsoleLogger)
